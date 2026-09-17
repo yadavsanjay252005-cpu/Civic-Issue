@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.DS_Store
+
+# Runtime files
+uploads/*
+!uploads/.gitkeep
+
+reports/*
+!reports/.gitkeep
