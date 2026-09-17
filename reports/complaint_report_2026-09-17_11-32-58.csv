@@ -1,0 +1,4 @@
+Complaint ID,User Name,Email,Phone,Category,Description,Image Path,Status,Admin Remark,Created At,Updated At
+3,sanjay yadav,sanjay@gmail.com,9511766501,Road,road is damaged,uploads\176810ed26384b96a6bb5b18efb17064.jpg,Pending,,2026-09-16 21:29:03,2026-09-16 21:29:03
+2,sanjay yadav,sanjay@gmail.com,9511766501,Garbage,garbage on side of road,uploads\f6338f844f8f400987a524b69eac259f.jpeg,Pending,,2026-09-16 20:57:07,2026-09-16 20:57:07
+1,sanjay,vivek25@gmail.com,9511766501,Garbage,garbage at the side of the road,uploads\d7e8548971b54c129b57b1cf9ce92753.jpeg,In Progress,workers are assigned,2026-09-15 19:26:25,2026-09-16 20:55:19
