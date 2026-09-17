@@ -1,12 +1,18 @@
-[server]
-headless = true
-enableCORS = false
-enableXsrfProtection = true
+# Defining BOTH [theme.light] and [theme.dark] lets Streamlit auto-match
+# the visitor's device/browser preference (with a manual override still
+# available from the Settings menu, if it isn't hidden).
 
 [theme]
-base = "light"
-primaryColor = "#2563EB"
-backgroundColor = "#F1F5F9"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#0F172A"
 font = "sans serif"
+
+[theme.light]
+primaryColor = "#2563EB"              # Professional, trustworthy medical blue
+backgroundColor = "#F4F8FB"           # Soft, clean off-white
+secondaryBackgroundColor = "#FFFFFF"  # Pure white for sidebar / inputs
+textColor = "#1F2937"                 # Dark grey, readable on light bg
+
+[theme.dark]
+primaryColor = "#3B82F6"              # Brighter blue for contrast on dark bg
+backgroundColor = "#0F172A"           # Deep slate
+secondaryBackgroundColor = "#1E293B"  # Slightly lighter slate for sidebar/inputs
+textColor = "#E5E7EB"                 # Light grey, readable on dark bg
