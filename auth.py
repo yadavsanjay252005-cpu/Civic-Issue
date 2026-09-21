@@ -34,7 +34,7 @@ def register_user(name, email, phone, password, confirm_password, role="user"):
         raise AuthError("Please enter a valid email address.")
 
     if not utils.is_valid_phone(phone):
-        raise AuthError("Please enter a valid phone number.")
+        raise AuthError("Please enter a valid 10-digit Indian mobile number.")
 
     if not utils.is_non_empty(password):
         raise AuthError("Password is required.")
