@@ -77,7 +77,9 @@ def now_str() -> str:
 # ---------------------------------------------------------------------------
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_PHONE_RE = re.compile(r"^\+?[0-9\- ]{7,15}$")
+
+# Valid Indian mobile numbers: exactly 10 digits, starting with 6/7/8/9.
+_INDIAN_MOBILE_RE = re.compile(r"^[6-9][0-9]{9}$")
 
 
 def is_valid_email(email: str) -> bool:
@@ -85,10 +87,39 @@ def is_valid_email(email: str) -> bool:
 
 
 def is_valid_phone(phone: str) -> bool:
-    """Phone is optional in some flows, but if provided it must look valid."""
+    """
+    Phone stays optional in the flows that call this (empty is still
+    allowed), but whenever a value IS provided it must be a genuine
+    10-digit Indian mobile number:
+      - exactly 10 digits, no letters/symbols
+      - first digit must be 6, 7, 8 or 9
+      - not an obviously fake repeated-digit number (0000000000,
+        1111111111, 6666666666, ...)
+    An optional "+91" / "91" country-code prefix is stripped first so
+    numbers like "+91 98765 43210" still validate correctly.
+    """
     if not phone:
         return True
-    return bool(_PHONE_RE.match(phone.strip()))
+
+    cleaned = re.sub(r"[\s\-()]", "", phone.strip())
+
+    if cleaned.startswith("+91"):
+        cleaned = cleaned[3:]
+    elif cleaned.startswith("91") and len(cleaned) == 12:
+        cleaned = cleaned[2:]
+    elif cleaned.startswith("0") and len(cleaned) == 11:
+        cleaned = cleaned[1:]
+
+    if not cleaned.isdigit():
+        return False
+
+    if not _INDIAN_MOBILE_RE.match(cleaned):
+        return False
+
+    if cleaned == cleaned[0] * 10:
+        return False
+
+    return True
 
 
 def is_non_empty(value: str) -> bool:
@@ -103,11 +134,13 @@ def passwords_match(password: str, confirm: str) -> bool:
 # File / image helpers
 # ---------------------------------------------------------------------------
 
-def copy_image_to_uploads(source_path: str) -> str:
+def copy_image_to_uploads(source_path: str, subfolder: str = None) -> str:
     """
-    Copy an image selected by the user into the uploads/ directory using a
-    unique filename, and return the path (relative to the project root)
-    that should be stored in the database.
+    Copy an image selected by the user into the uploads/ directory (or an
+    uploads/<subfolder>/ directory, e.g. "resolutions", to keep admin
+    resolution photos physically separate from original complaint photos)
+    using a unique filename, and return the path (relative to the project
+    root) that should be stored in the database.
     """
     ensure_directories()
 
@@ -122,7 +155,16 @@ def copy_image_to_uploads(source_path: str) -> str:
         raise ValueError(f"Invalid file extension: {ext}. Only JPG, PNG, GIF, and BMP are allowed.")
 
     unique_name = "{}{}".format(uuid.uuid4().hex, ext.lower())
-    destination_path = os.path.join(UPLOADS_DIR, unique_name)
+
+    target_dir = UPLOADS_DIR
+    relative_parts = ["uploads"]
+    if subfolder:
+        target_dir = os.path.join(UPLOADS_DIR, subfolder)
+        os.makedirs(target_dir, exist_ok=True)
+        relative_parts.append(subfolder)
+
+    destination_path = os.path.join(target_dir, unique_name)
+    relative_parts.append(unique_name)
 
     try:
         shutil.copyfile(source_path, destination_path)
@@ -130,7 +172,7 @@ def copy_image_to_uploads(source_path: str) -> str:
         raise IOError(f"Could not copy image: {e}")
 
     # Store a path relative to the project root so the DB stays portable.
-    return os.path.join("uploads", unique_name)
+    return os.path.join(*relative_parts)
 
 
 def resolve_upload_path(relative_path: str) -> str:
