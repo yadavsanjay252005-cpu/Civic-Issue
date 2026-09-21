@@ -18,9 +18,11 @@ REPORT_HEADERS = [
     "Phone",
     "Category",
     "Description",
+    "Location",
     "Image Path",
     "Status",
     "Admin Remark",
+    "Resolution Photo Path",
     "Created At",
     "Updated At",
 ]
@@ -52,9 +54,11 @@ def generate_report(admin_id=None):
                 complaint.get("user_phone", ""),
                 complaint["category"],
                 complaint["description"],
+                complaint.get("location", "") or "",
                 complaint["image_path"] or "",
                 complaint["status"],
                 complaint["admin_remark"] or "",
+                complaint.get("resolution_image_path", "") or "",
                 complaint["created_at"],
                 complaint["updated_at"],
             ])
