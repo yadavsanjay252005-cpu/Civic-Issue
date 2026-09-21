@@ -152,6 +152,15 @@ def log_manage_complaint(admin_id, complaint_id):
     )
 
 
+def log_upload_resolution_photo(admin_id, complaint_id):
+    log_activity(
+        admin_id, complaint_id,
+        "Upload Resolution Photo",
+        "Resolution/repaired photo attached to complaint",
+        "Admin/System",
+    )
+
+
 def log_generate_report(admin_id, report_path):
     log_activity(
         admin_id, None,
