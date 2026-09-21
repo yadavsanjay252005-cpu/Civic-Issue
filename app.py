@@ -580,6 +580,11 @@ def render_submit_complaint(user) -> None:
             height=170,
             placeholder="Example: The street light near the college gate has been off for three days...",
         )
+        location = st.text_input(
+            "Location / Address *",
+            placeholder="Example: Near ABC School, Main Road, Thane",
+            help="Type the address or a nearby landmark. No GPS or map picker needed.",
+        )
         image_file = st.file_uploader(
             "Attach Image (Optional)",
             type=["png", "jpg", "jpeg", "gif", "bmp"],
@@ -592,12 +597,17 @@ def render_submit_complaint(user) -> None:
         )
 
     if submitted:
+        if not utils.is_non_empty(location):
+            st.error("Location / Address is required.")
+            return
+
         try:
             if image_file is None:
                 complaint_id = complaint.submit_complaint(
                     user_id=user["id"],
                     category=category,
                     description=description,
+                    location=location,
                     image_source_path=None,
                 )
             else:
@@ -607,6 +617,7 @@ def render_submit_complaint(user) -> None:
                         user_id=user["id"],
                         category=category,
                         description=description,
+                        location=location,
                         image_source_path=p,
                     ),
                 )
@@ -654,6 +665,8 @@ def render_my_complaints(complaints) -> None:
             with left:
                 st.markdown(status_badge(c["status"]), unsafe_allow_html=True)
                 st.write("")
+                st.markdown("**Location / Address**")
+                st.write(c.get("location") or "Not provided")
                 st.markdown("**Description**")
                 st.write(c["description"])
                 st.markdown("**Admin Remark**")
@@ -663,6 +676,7 @@ def render_my_complaints(complaints) -> None:
                 )
 
             with right:
+                st.markdown("**Complaint Photo**")
                 if c.get("image_path"):
                     abs_path = utils.resolve_upload_path(c["image_path"])
                     if os.path.exists(abs_path):
@@ -678,6 +692,18 @@ def render_my_complaints(complaints) -> None:
                         st.warning("The image file is not available on this deployment.")
                 else:
                     st.caption("No image was attached to this complaint.")
+
+                if c.get("resolution_image_path"):
+                    st.markdown("**Resolution Photo**")
+                    abs_res_path = utils.resolve_upload_path(c["resolution_image_path"])
+                    if os.path.exists(abs_res_path):
+                        st.image(
+                            abs_res_path,
+                            caption="Repaired / resolved by admin",
+                            use_container_width=True,
+                        )
+                    else:
+                        st.warning("The resolution photo is not available on this deployment.")
 
 
 
@@ -1010,6 +1036,8 @@ def render_manage_complaints(complaints, admin_user) -> None:
         st.write(f"**Email:** {selected['user_email']}")
         st.write(f"**Phone:** {selected.get('user_phone') or 'N/A'}")
         st.caption(f"Submitted: {selected['created_at']}")
+        st.markdown("**Location / Address**")
+        st.write(selected.get("location") or "Not provided")
         st.markdown("**Description**")
         st.write(selected["description"])
 
@@ -1048,6 +1076,18 @@ def render_manage_complaints(complaints, admin_user) -> None:
                 st.session_state.view_image_path = None
                 st.rerun()
 
+        if selected.get("resolution_image_path"):
+            st.markdown("### Resolution photo")
+            abs_res_path = utils.resolve_upload_path(selected["resolution_image_path"])
+            if os.path.exists(abs_res_path):
+                st.image(
+                    abs_res_path,
+                    caption=f"Complaint #{selected['id']} resolution photo",
+                    use_container_width=True,
+                )
+            else:
+                st.warning("The resolution photo is not available on this deployment.")
+
     st.markdown("---")
     st.subheader("Update complaint")
 
@@ -1066,6 +1106,12 @@ def render_manage_complaints(complaints, admin_user) -> None:
         height=120,
         placeholder="Add a clear update for the citizen...",
     )
+    resolution_image_file = st.file_uploader(
+        "Resolution / Repaired Photo (shown to the citizen once uploaded)",
+        type=["png", "jpg", "jpeg", "gif", "bmp"],
+        help="Optional. Upload a photo of the fixed issue, e.g. when marking the complaint Resolved.",
+        key=f"resolution_photo_{selected['id']}",
+    )
 
     save_col, refresh_col = st.columns([1.3, 1])
     with save_col:
@@ -1075,12 +1121,24 @@ def render_manage_complaints(complaints, admin_user) -> None:
             use_container_width=True,
         ):
             try:
-                complaint.manage_complaint(
-                    admin_id=admin_user["id"],
-                    complaint_id=selected["id"],
-                    new_status=status,
-                    admin_remark=remark.strip(),
-                )
+                if resolution_image_file is None:
+                    complaint.manage_complaint(
+                        admin_id=admin_user["id"],
+                        complaint_id=selected["id"],
+                        new_status=status,
+                        admin_remark=remark.strip(),
+                    )
+                else:
+                    with_temp_upload(
+                        resolution_image_file,
+                        lambda p: complaint.manage_complaint(
+                            admin_id=admin_user["id"],
+                            complaint_id=selected["id"],
+                            new_status=status,
+                            admin_remark=remark.strip(),
+                            resolution_image_source_path=p,
+                        ),
+                    )
             except complaint.ComplaintError as exc:
                 st.error(f"Update failed: {exc}")
             except Exception as exc:
