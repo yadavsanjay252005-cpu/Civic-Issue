@@ -42,7 +42,9 @@ def _create_tables(conn: sqlite3.Connection):
             user_id INTEGER NOT NULL,
             category TEXT NOT NULL,
             description TEXT NOT NULL,
+            location TEXT NOT NULL DEFAULT '',
             image_path TEXT,
+            resolution_image_path TEXT,
             status TEXT NOT NULL DEFAULT 'Pending',
             admin_remark TEXT,
             created_at TEXT NOT NULL,
@@ -97,6 +99,34 @@ def _create_default_admin(conn: sqlite3.Connection):
     conn.commit()
 
 
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table})")
+    return any(row[1] == column for row in cursor.fetchall())
+
+
+def _migrate_schema(conn: sqlite3.Connection):
+    """
+    Add any columns that were introduced after a database file was first
+    created. SQLite's ALTER TABLE ... ADD COLUMN is safe to run on existing
+    data and does not touch existing rows other than backfilling the new
+    column with its default value.
+    """
+    cursor = conn.cursor()
+
+    if not _column_exists(conn, "complaints", "location"):
+        cursor.execute(
+            "ALTER TABLE complaints ADD COLUMN location TEXT NOT NULL DEFAULT ''"
+        )
+
+    if not _column_exists(conn, "complaints", "resolution_image_path"):
+        cursor.execute(
+            "ALTER TABLE complaints ADD COLUMN resolution_image_path TEXT"
+        )
+
+    conn.commit()
+
+
 def get_connection() -> sqlite3.Connection:
     """
     Return a new SQLite connection with foreign keys enabled.
@@ -114,7 +144,11 @@ def get_connection() -> sqlite3.Connection:
     if not cursor.fetchone():
         _create_tables(conn)
         _create_default_admin(conn)
-        
+    else:
+        # Existing database from before these columns existed: bring it
+        # up to date in place instead of touching any other data.
+        _migrate_schema(conn)
+
     return conn
 
 
