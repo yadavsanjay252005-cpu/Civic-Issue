@@ -17,21 +17,28 @@ class ComplaintError(Exception):
     pass
 
 
-def submit_complaint(user_id, category, description, image_source_path=None):
+def submit_complaint(user_id, category, description, location, image_source_path=None):
     """
     Create a new complaint for the given user.
+
+    location is the mandatory, free-text address/location of the issue
+    (e.g. "Near ABC School, Main Road, Thane") -- no GPS/map data involved.
 
     image_source_path, if provided, is the path to a file the user picked
     via the file dialog; it gets copied into uploads/ with a unique name.
     """
     category = (category or "").strip()
     description = (description or "").strip()
+    location = (location or "").strip()
 
     if category not in models.COMPLAINT_CATEGORIES:
         raise ComplaintError("Please select a valid complaint category.")
 
     if not utils.is_non_empty(description):
         raise ComplaintError("Please enter a complaint description.")
+
+    if not utils.is_non_empty(location):
+        raise ComplaintError("Location / Address is required.")
 
     image_path = None
     if image_source_path:
@@ -45,6 +52,7 @@ def submit_complaint(user_id, category, description, image_source_path=None):
         user_id=user_id,
         category=category,
         description=description,
+        location=location,
         image_path=image_path,
         status="Pending",
         created_at=timestamp,
@@ -120,11 +128,17 @@ def get_complaint_details(complaint_id):
     return complaint
 
 
-def manage_complaint(admin_id, complaint_id, new_status, admin_remark):
+def manage_complaint(admin_id, complaint_id, new_status, admin_remark, resolution_image_source_path=None):
     """
     Admin action: update status and/or remark for a complaint, and log both
     "Update Complaint Status" and "Manage Complaint" events as described in
     the spec.
+
+    resolution_image_source_path, if provided, is the path to a file the
+    admin picked (e.g. a photo of the repaired/resolved issue). It is
+    stored under uploads/resolutions/ and recorded in the complaint's
+    resolution_image_path column, kept separate from the citizen's
+    original image_path.
     """
     if new_status not in models.COMPLAINT_STATUSES:
         raise ComplaintError("Please select a valid status.")
@@ -133,15 +147,27 @@ def manage_complaint(admin_id, complaint_id, new_status, admin_remark):
     if complaint is None:
         raise ComplaintError("Complaint not found.")
 
+    resolution_image_path = None
+    if resolution_image_source_path:
+        try:
+            resolution_image_path = utils.copy_image_to_uploads(
+                resolution_image_source_path, subfolder="resolutions"
+            )
+        except (FileNotFoundError, ValueError, IOError) as exc:
+            raise ComplaintError(str(exc))
+
     updated = models.update_complaint_status(
         complaint_id,
         status=new_status,
         admin_remark=admin_remark,
         updated_at=utils.now_str(),
+        resolution_image_path=resolution_image_path,
     )
     if not updated:
         raise ComplaintError("Could not update the complaint.")
 
     activity_log.log_update_status(admin_id, complaint_id, new_status)
     activity_log.log_manage_complaint(admin_id, complaint_id)
+    if resolution_image_path:
+        activity_log.log_upload_resolution_photo(admin_id, complaint_id)
     return True
