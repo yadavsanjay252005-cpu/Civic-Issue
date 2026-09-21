@@ -105,17 +105,17 @@ def update_user_password(user_id, new_password_hash):
 # Complaint operations
 # ---------------------------------------------------------------------------
 
-def create_complaint(user_id, category, description, image_path, status, created_at, updated_at):
+def create_complaint(user_id, category, description, location, image_path, status, created_at, updated_at):
     conn = database.get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
             INSERT INTO complaints
-                (user_id, category, description, image_path, status, admin_remark, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (user_id, category, description, location, image_path, status, admin_remark, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, category, description, image_path, status, None, created_at, updated_at),
+            (user_id, category, description, location, image_path, status, None, created_at, updated_at),
         )
         conn.commit()
         return cursor.lastrowid
@@ -171,17 +171,26 @@ def get_all_complaints():
         conn.close()
 
 
-def update_complaint_status(complaint_id, status, admin_remark, updated_at):
+def update_complaint_status(complaint_id, status, admin_remark, updated_at, resolution_image_path=None):
+    """
+    Update a complaint's status/remark. resolution_image_path is optional:
+    when None, the existing resolution photo (if any) is left untouched via
+    COALESCE, so an admin can update status/remark without re-uploading a
+    photo every time.
+    """
     conn = database.get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
             UPDATE complaints
-            SET status = ?, admin_remark = ?, updated_at = ?
+            SET status = ?,
+                admin_remark = ?,
+                updated_at = ?,
+                resolution_image_path = COALESCE(?, resolution_image_path)
             WHERE id = ?
             """,
-            (status, admin_remark, updated_at, complaint_id),
+            (status, admin_remark, updated_at, resolution_image_path, complaint_id),
         )
         conn.commit()
         return cursor.rowcount > 0
